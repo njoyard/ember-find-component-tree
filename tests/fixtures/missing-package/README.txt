@@ -1,0 +1,1 @@
+This fixture has no node_modules/my-components so the CLI reports the package as not installed.
