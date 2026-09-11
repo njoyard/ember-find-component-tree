@@ -1,19 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { extractTemplateDependencies } from '../src/index.js';
-import { PKG, setupTmpDir } from './test-helpers.js';
+import { setupTmpDir } from './test-helpers.js';
 
 describe('extractTemplateDependencies', () => {
   const fixture = setupTmpDir();
 
   it('resolves an ElementNode via localImports', () => {
     const localImports = { Icon: 'my-components/components/icon' };
-    const deps = extractTemplateDependencies('<Icon />', PKG, localImports);
+    const deps = extractTemplateDependencies('<Icon />', 'my-components', localImports);
     expect(deps).toEqual([{ path: 'my-components/components/icon' }]);
   });
 
   it('resolves a MustacheStatement via localImports', () => {
     const localImports = { Icon: 'my-components/components/icon' };
-    const deps = extractTemplateDependencies('{{Icon}}', PKG, localImports);
+    const deps = extractTemplateDependencies('{{Icon}}', 'my-components', localImports);
     expect(deps).toEqual([{ path: 'my-components/components/icon' }]);
   });
 
@@ -21,14 +21,17 @@ describe('extractTemplateDependencies', () => {
     const localImports = { Icon: 'my-components/components/icon' };
     const deps = extractTemplateDependencies(
       '{{#Icon}}block{{/Icon}}',
-      PKG,
+      'my-components',
       localImports,
     );
     expect(deps).toEqual([{ path: 'my-components/components/icon' }]);
   });
 
   it('resolves a full package path in a MustacheStatement', () => {
-    const deps = extractTemplateDependencies('{{my-components/components/icon}}', PKG);
+    const deps = extractTemplateDependencies(
+      '{{my-components/components/icon}}',
+      'my-components',
+    );
     expect(deps).toEqual([{ path: 'my-components/components/icon' }]);
   });
 
@@ -36,7 +39,7 @@ describe('extractTemplateDependencies', () => {
     fixture.writeAddon('components/form/field.gjs');
     const deps = extractTemplateDependencies(
       '<Form::Field />',
-      PKG,
+      'my-components',
       {},
       fixture.addonPath(),
     );
@@ -45,7 +48,12 @@ describe('extractTemplateDependencies', () => {
 
   it('resolves a classic mustache reference when file exists', () => {
     fixture.writeAddon('components/icon.gjs');
-    const deps = extractTemplateDependencies('{{Icon}}', PKG, {}, fixture.addonPath());
+    const deps = extractTemplateDependencies(
+      '{{Icon}}',
+      'my-components',
+      {},
+      fixture.addonPath(),
+    );
     expect(deps).toEqual([{ path: 'my-components/components/icon' }]);
   });
 
@@ -55,18 +63,22 @@ describe('extractTemplateDependencies', () => {
         <span>hi</span>
       </div>
     `;
-    const deps = extractTemplateDependencies(template, PKG);
+    const deps = extractTemplateDependencies(template, 'my-components');
     expect(deps).toEqual([]);
   });
 
   it('ignores @-prefixed path expressions', () => {
-    const deps = extractTemplateDependencies('<div>{{@label}}</div>', PKG);
+    const deps = extractTemplateDependencies('<div>{{@label}}</div>', 'my-components');
     expect(deps).toEqual([]);
   });
 
   it('deduplicates dependencies', () => {
     const localImports = { Icon: 'my-components/components/icon' };
-    const deps = extractTemplateDependencies('<Icon /><Icon />', PKG, localImports);
+    const deps = extractTemplateDependencies(
+      '<Icon /><Icon />',
+      'my-components',
+      localImports,
+    );
     expect(deps).toHaveLength(1);
   });
 });

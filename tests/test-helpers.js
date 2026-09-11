@@ -3,8 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { beforeEach, afterEach } from 'vitest';
 
-export const PKG = 'my-components';
-
 export function setupTmpDir() {
   const originalCwd = process.cwd();
   let tmp;
@@ -23,7 +21,7 @@ export function setupTmpDir() {
       return tmp;
     },
     addonPath() {
-      return path.join(tmp, 'node_modules', PKG, 'addon');
+      return path.join(tmp, 'node_modules', 'my-components', 'addon');
     },
     write(rel, content = '') {
       const abs = path.join(tmp, rel);
@@ -31,7 +29,7 @@ export function setupTmpDir() {
       fs.writeFileSync(abs, content);
     },
     writeAddon(rel, content = '') {
-      const abs = path.join(tmp, 'node_modules', PKG, 'addon', rel);
+      const abs = path.join(tmp, 'node_modules', 'my-components', 'addon', rel);
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, content);
     },
