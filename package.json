@@ -21,7 +21,7 @@
     "gjs",
     "gts"
   ],
-  "author": "",
+  "author": "Nicolas Joyard <nicolas-github@njoyard.fr>",
   "license": "MIT",
   "engines": {
     "node": ">=22"
