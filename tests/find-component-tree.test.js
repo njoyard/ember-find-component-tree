@@ -201,4 +201,17 @@ describe('findComponentTree', () => {
       ]);
     });
   });
+
+  it('parses .gjs files using legacy decorators', async () => {
+    await inFixture('decorators', async () => {
+      const result = await findComponentTree('my-components');
+
+      const root = result.tree[0];
+      expect(root.name).toBe('app/components/reject-modal.gjs');
+      const modal = root.children[0];
+      expect(modal.name).toBe('my-components/components/modal-dialog');
+      expect(modal.children).toHaveLength(0);
+      expect(result.list).toEqual(['my-components/components/modal-dialog']);
+    });
+  });
 });

@@ -28,6 +28,7 @@
   },
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
+    "@babel/parser": "^8.0.5",
     "@glimmer/env": "^0.1.7",
     "@glimmer/syntax": "^0.95.0",
     "glob": "^13.0.6"

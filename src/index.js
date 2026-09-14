@@ -1,7 +1,8 @@
 const { glob } = require('glob');
 const fs = require('fs');
 const path = require('path');
-const { preprocess, traverse } = require('@glimmer/syntax');
+const { parse } = require('@babel/parser');
+const { preprocess, traverse, src } = require('@glimmer/syntax');
 
 async function findComponentTree(packageName) {
   const cwd = process.cwd();
@@ -95,55 +96,69 @@ async function findComponentTree(packageName) {
 }
 
 function extractPackageImports(content, packageName) {
+  const ast = parseSource(content);
+  if (!ast) return [];
+  const prefix = `${packageName}/components/`;
   const imports = [];
-  const importRe = /import\s*([^'"\n]+?)\s+from\s+['"]([^'"]+)['"]/g;
-  let match;
 
-  while ((match = importRe.exec(content)) !== null) {
-    const [, specifier, importPath] = match;
-    if (!importPath.startsWith(`${packageName}/components/`)) {
-      continue;
-    }
-    for (const localName of parseImportSpecifier(specifier)) {
-      imports.push({ localName, importPath });
+  for (const node of ast.program.body) {
+    if (node.type !== 'ImportDeclaration') continue;
+    if (node.importKind === 'type') continue;
+    if (!node.source.value.startsWith(prefix)) continue;
+
+    for (const spec of node.specifiers) {
+      if (spec.importKind === 'type') continue;
+      imports.push({ localName: spec.local.name, importPath: node.source.value });
     }
   }
 
   return imports;
 }
 
-function parseImportSpecifier(specifier) {
-  const names = [];
-  const trimmed = specifier.trim();
-
-  const defaultMatch = trimmed.match(/^([A-Za-z_$][\w$]*)/);
-  if (defaultMatch) {
-    names.push(defaultMatch[1]);
-  }
-
-  const namespaceMatch = trimmed.match(/^\*\s+as\s+([A-Za-z_$][\w$]*)/);
-  if (namespaceMatch) {
-    names.push(namespaceMatch[1]);
-  }
-
-  const namedMatch = trimmed.match(/\{\s*([^}]+?)\s*\}/);
-  if (namedMatch) {
-    for (const part of namedMatch[1].split(',')) {
-      const entry = part.trim();
-      if (!entry) continue;
-      const aliasMatch = entry.match(/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)/);
-      if (aliasMatch) {
-        names.push(aliasMatch[2]);
-      } else {
-        const nameMatch = entry.match(/^([A-Za-z_$][\w$]*)/);
-        if (nameMatch) {
-          names.push(nameMatch[1]);
-        }
-      }
+function parseSource(content) {
+  const options = { sourceType: 'module', plugins: ['typescript', 'decorators-legacy'] };
+  try {
+    return parse(content, options);
+  } catch {
+    try {
+      return parse(stripTemplateBlocks(content), options);
+    } catch {
+      return null;
     }
   }
+}
 
-  return names;
+function stripTemplateBlocks(content) {
+  let ast;
+  try {
+    ast = preprocess(content, { mode: 'codemod' });
+  } catch {
+    return content;
+  }
+
+  const source = src.Source.from(content);
+  const ranges = [];
+
+  traverse(ast, {
+    ElementNode(node) {
+      if (node.tag !== 'template') return;
+      const start = source.charPosFor(node.loc.start);
+      const end = source.charPosFor(node.loc.end);
+      ranges.push([start, end]);
+    },
+  });
+
+  if (ranges.length === 0) return content;
+  ranges.sort((a, b) => a[0] - b[0]);
+
+  let stripped = '';
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    stripped += content.slice(cursor, start);
+    cursor = end;
+  }
+  stripped += content.slice(cursor);
+  return stripped;
 }
 
 async function findComponentFile(addonPath, importPath, packageName) {
@@ -333,7 +348,6 @@ function componentFileExists(addonPath, relPath) {
 
 module.exports = {
   findComponentTree,
-  parseImportSpecifier,
   extractPackageImports,
   findComponentFile,
   extractTemplateContent,
